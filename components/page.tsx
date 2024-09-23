@@ -19,7 +19,7 @@ const products = [
   { id: 8, name: "Motul 8100 X-cess", description: "100% Synthetic Engine Oil", price: 59.99 },
 ]
 
-export default function Page() { // Changed export to default
+export function Page() {
   const [cart, setCart] = useState<{id: number, quantity: number}[]>([])
   const [showOrderSummary, setShowOrderSummary] = useState(false)
   const [showCheckoutForm, setShowCheckoutForm] = useState(false)
