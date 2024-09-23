@@ -1,26 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { ShoppingCart } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { supabase } from '@/lib/supabaseClient'
 
-const products = [
-  { id: 1, name: "Castrol GTX Motor Oil", description: "High-performance motor oil for everyday driving", price: 29.99 },
-  { id: 2, name: "Mobil 1 Synthetic Oil", description: "Advanced full synthetic motor oil", price: 39.99 },
-  { id: 3, name: "Shell Rotella T6", description: "Full synthetic heavy duty diesel engine oil", price: 49.99 },
-  { id: 4, name: "Valvoline MaxLife", description: "High mileage motor oil with extra additives", price: 34.99 },
-  { id: 5, name: "Pennzoil Platinum", description: "Full synthetic motor oil with PurePlus Technology", price: 44.99 },
-  { id: 6, name: "Royal Purple HMX", description: "High-performance synthetic motor oil", price: 54.99 },
-  { id: 7, name: "Liqui Moly Leichtlauf", description: "High tech motor oil", price: 37.99 },
-  { id: 8, name: "Motul 8100 X-cess", description: "100% Synthetic Engine Oil", price: 59.99 },
-]
-
-export default function Page() { // Changed export to default
-  const [cart, setCart] = useState<{id: number, quantity: number}[]>([])
+export default function Page() {
+  const [products, setProducts] = useState<{ id: number, name: string, description: string, price: number }[]>([])
+  const [cart, setCart] = useState<{ id: number, quantity: number }[]>([])
   const [showOrderSummary, setShowOrderSummary] = useState(false)
   const [showCheckoutForm, setShowCheckoutForm] = useState(false)
   const [orderConfirmation, setOrderConfirmation] = useState(false)
@@ -30,6 +21,20 @@ export default function Page() { // Changed export to default
     companyNUI: '',
     email: '',
   })
+
+  useEffect(() => {
+    fetchProducts()
+  }, [])
+
+  const fetchProducts = async () => {
+    const { data, error } = await supabase.from('Products').select('*')
+    if (error) {
+      console.error('Error fetching products:', error)
+    } else {
+      console.log('Fetched products:', data) // Add this line to log the fetched data
+      setProducts(data)
+    }
+  }
 
   const addToCart = (productId: number) => {
     setCart(prevCart => {
@@ -45,8 +50,8 @@ export default function Page() { // Changed export to default
   }
 
   const updateQuantity = (productId: number, newQuantity: number) => {
-    setCart(prevCart => 
-      prevCart.map(item => 
+    setCart(prevCart =>
+      prevCart.map(item =>
         item.id === productId ? { ...item, quantity: Math.max(0, newQuantity) } : item
       ).filter(item => item.quantity > 0)
     )
@@ -54,15 +59,29 @@ export default function Page() { // Changed export to default
 
   const getTotalItems = () => cart.reduce((sum, item) => sum + item.quantity, 0)
 
-  const getTotalPrice = () => 
+  const getTotalPrice = () =>
     cart.reduce((sum, item) => {
       const product = products.find(p => p.id === item.id)
       return sum + (product ? product.price * item.quantity : 0)
     }, 0)
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault()
-    setOrderConfirmation(true)
+    const { data, error } = await supabase.from('Orders').insert([
+      {
+        customer_name: formData.name,
+        company_name: formData.companyName,
+        company_nui: formData.companyNUI,
+        email: formData.email,
+        items: cart,
+        total_price: getTotalPrice(),
+      },
+    ])
+    if (error) {
+      console.error('Error submitting order:', error)
+    } else {
+      setOrderConfirmation(true)
+    }
   }
 
   return (
@@ -160,7 +179,7 @@ export default function Page() { // Changed export to default
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
             </div>
@@ -169,7 +188,7 @@ export default function Page() { // Changed export to default
               <Input
                 id="companyName"
                 value={formData.companyName}
-                onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                 required
               />
             </div>
@@ -178,7 +197,7 @@ export default function Page() { // Changed export to default
               <Input
                 id="companyNUI"
                 value={formData.companyNUI}
-                onChange={(e) => setFormData({...formData, companyNUI: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, companyNUI: e.target.value })}
                 required
               />
             </div>
@@ -188,7 +207,7 @@ export default function Page() { // Changed export to default
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
               />
             </div>
