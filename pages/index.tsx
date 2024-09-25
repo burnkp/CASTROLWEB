@@ -8,9 +8,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { supabase } from '@/lib/supabaseClient'
+import { getProducts, createOrder, getProductImageUrl } from '@/lib/supabaseClient'
 
 export default function Page() {
-  const [products, setProducts] = useState<{ id: number, name: string, description: string, price: number }[]>([])
+  const [products, setProducts] = useState<{ id: number, name: string, description: string, price: number, image_url?: string }[]>([])
   const [cart, setCart] = useState<{ id: number, quantity: number }[]>([])
   const [showOrderSummary, setShowOrderSummary] = useState(false)
   const [showCheckoutForm, setShowCheckoutForm] = useState(false)
@@ -21,18 +22,19 @@ export default function Page() {
     companyNUI: '',
     email: '',
   })
+  const [imageError, setImageError] = useState<{[key: number]: boolean}>({})
 
   useEffect(() => {
     fetchProducts()
   }, [])
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase.from('Products').select('*')
-    if (error) {
-      console.error('Error fetching products:', error)
-    } else {
-      console.log('Fetched products:', data) // Add this line to log the fetched data
-      setProducts(data)
+    try {
+      const data = await getProducts();
+      console.log('Fetched products:', JSON.stringify(data, null, 2));
+      setProducts(data);
+    } catch (error) {
+      console.error('Error fetching products:', error);
     }
   }
 
@@ -66,21 +68,23 @@ export default function Page() {
     }, 0)
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const { data, error } = await supabase.from('Orders').insert([
-      {
+    e.preventDefault();
+    try {
+      const orderData = {
         customer_name: formData.name,
         company_name: formData.companyName,
         company_nui: formData.companyNUI,
         email: formData.email,
         items: cart,
         total_price: getTotalPrice(),
-      },
-    ])
-    if (error) {
-      console.error('Error submitting order:', error)
-    } else {
-      setOrderConfirmation(true)
+      };
+      const data = await createOrder(orderData);
+      console.log('Order submitted:', data);
+      setOrderConfirmation(true);
+      setShowCheckoutForm(false);
+      setShowOrderSummary(false);
+    } catch (error) {
+      console.error('Error submitting order:', error);
     }
   }
 
@@ -129,7 +133,23 @@ export default function Page() {
                   <CardDescription>{product.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Image src="/placeholder.svg" alt={product.name} width={200} height={200} className="mx-auto" />
+                  <Image 
+                    src={getProductImageUrl(product.image_url)}
+                    alt={product.name} 
+                    width={200} 
+                    height={200} 
+                    className="mx-auto" 
+                    onError={(e) => {
+                      console.error('Image load error for product:', product.name, product.image_url);
+                      setImageError({...imageError, [product.id]: true});
+                    }}
+                    style={{display: imageError[product.id] ? 'none' : 'block'}}
+                  />
+                  {imageError[product.id] && (
+                    <div className="w-[200px] h-[200px] bg-gray-200 flex items-center justify-center mx-auto">
+                      <span>Image not available</span>
+                    </div>
+                  )}
                   <p className="mt-2 text-lg font-bold">${product.price.toFixed(2)}</p>
                 </CardContent>
                 <CardFooter>
