@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { supabase } from '@/lib/supabaseClient'
-import { getProducts, createOrder, getProductImageUrl } from '@/lib/supabaseClient'
+import { supabase, getProducts, createOrder, getProductImageUrl, testOrdersTable, testCustomerCreation } from '@/lib/supabaseClient'
 
 export default function Page() {
   const [products, setProducts] = useState<{ id: number, name: string, description: string, price: number, image_url?: string }[]>([])
@@ -25,7 +24,7 @@ export default function Page() {
   const [imageError, setImageError] = useState<{[key: number]: boolean}>({})
 
   useEffect(() => {
-    fetchProducts()
+    fetchProducts();
   }, [])
 
   const fetchProducts = async () => {
@@ -35,6 +34,7 @@ export default function Page() {
       setProducts(data);
     } catch (error) {
       console.error('Error fetching products:', error);
+      setProducts([]); // Set to empty array in case of error
     }
   }
 
@@ -75,18 +75,43 @@ export default function Page() {
         company_name: formData.companyName,
         company_nui: formData.companyNUI,
         email: formData.email,
-        items: cart,
         total_price: getTotalPrice(),
+        status: 'pending',
       };
+      console.log('Submitting order data:', orderData);
       const data = await createOrder(orderData);
-      console.log('Order submitted:', data);
+      console.log('Order submitted successfully:', data);
       setOrderConfirmation(true);
       setShowCheckoutForm(false);
       setShowOrderSummary(false);
+      setCart([]);
     } catch (error) {
       console.error('Error submitting order:', error);
+      if (error instanceof Error) {
+        alert(`Error submitting order: ${error.message}`);
+      } else {
+        alert('An unknown error occurred while submitting the order');
+      }
     }
   }
+
+  const testCustomer = async () => {
+    try {
+      const testData = {
+        name: 'Test Customer',
+        email: 'test@example.com',
+        company_name: 'Test Company',
+        company_nui: 'TEST123',
+        created_at: new Date().toISOString()
+      };
+      const result = await testCustomerCreation(testData);
+      console.log('Test customer creation result:', result);
+      alert('Test customer created successfully');
+    } catch (error) {
+      console.error('Error in test customer creation:', error);
+      alert(`Error in test customer creation: ${error.message}`);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -239,8 +264,14 @@ export default function Page() {
         {orderConfirmation && (
           <div className="mt-8 text-center">
             <h2 className="text-2xl font-bold mb-4">Thank you for your order!</h2>
-            <p>Your order reference number is: {Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+            <p>Your order has been successfully placed.</p>
             <p className="mt-4">We will contact you shortly at {formData.email} with further instructions.</p>
+            <Button onClick={() => {
+              setOrderConfirmation(false);
+              setFormData({ name: '', companyName: '', companyNUI: '', email: '' });
+            }} className="mt-4">
+              Place Another Order
+            </Button>
           </div>
         )}
       </main>
@@ -271,6 +302,8 @@ export default function Page() {
           </div>
         </div>
       </footer>
+
+      <Button onClick={testCustomer}>Test Customer Creation</Button>
     </div>
   )
 }
