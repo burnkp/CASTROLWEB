@@ -6,7 +6,7 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_KEY: process.env.NEXT_PUBLIC_SUPABASE_KEY,
   },
   images: {
-    domains: ['yfsewjcuvvfhavpdugzr.supabase.co'],
+    domains: ['yfsewjcuvvfhavpdugzr.supabase.co', 'localhost'],
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {
