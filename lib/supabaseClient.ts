@@ -43,6 +43,16 @@ export const updateProduct = async (id, productData) => {
   return data;
 };
 
+export const getProductById = async (id: string) => {
+  const { data, error } = await supabase
+    .from('Products')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data;
+};
+
 // Customers
 export const createCustomer = async (customerData) => {
   const { data, error } = await supabase
@@ -62,6 +72,16 @@ export const getCustomers = async () => {
     return [];
   }
   return data || [];
+};
+
+export const getCustomerById = async (id: string) => {
+  const { data, error } = await supabase
+    .from('Customers')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data;
 };
 
 // Orders
@@ -89,10 +109,10 @@ export const getOrders = async () => {
   return data || [];
 };
 
-export const updateOrderStatus = async (id, status) => {
+export const updateOrderStatus = async (id: string, status: string) => {
   const { data, error } = await supabase
     .from('Orders')
-    .update({ order_status: status })
+    .update({ order_status: status, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select();
   if (error) throw error;
@@ -100,16 +120,43 @@ export const updateOrderStatus = async (id, status) => {
 };
 
 // Image upload
-export const uploadProductImage = async (file, fileName) => {
+export const uploadProductImage = async (file: File) => {
+  const fileName = `${uuidv4()}-${file.name}`;
   const { data, error } = await supabase.storage
     .from('product-images')
     .upload(fileName, file);
   if (error) throw error;
-  return data;
+  return getProductImageUrl(fileName);
 };
 
 export const getProductImageUrl = (path) => {
   if (!path) return '/placeholder.svg';
   if (path.startsWith('http')) return path;
   return supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+};
+
+// Dashboard KPIs
+export const getDashboardKPIs = async () => {
+  const { data: orders, error: ordersError } = await supabase
+    .from('Orders')
+    .select(`
+      *,
+      Products (name, price)
+    `);
+  
+  if (ordersError) throw ordersError;
+
+  const totalRevenue = orders.reduce((sum, order) => {
+    const price = order.Products?.price || 0;
+    return sum + (order.quantity * price);
+  }, 0);
+  
+  const totalOrders = orders.length;
+  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+  return {
+    totalRevenue,
+    totalOrders,
+    averageOrderValue
+  };
 };

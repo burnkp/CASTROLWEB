@@ -1,5 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getCurrentUser } from '@/lib/auth'
+import { getProductById, updateProduct, uploadProductImage } from '@/lib/supabaseClient'
 import Image from "next/image"
 import Link from "next/link"
 import {
@@ -72,7 +76,56 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-export function Page() {
+export function Page({ params }) {
+  const [user, setUser] = useState(null)
+  const [product, setProduct] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const currentUser = await getCurrentUser()
+      if (!currentUser) {
+        router.push('/admin/login')
+      } else {
+        setUser(currentUser)
+        const productData = await getProductById(params.id)
+        setProduct(productData)
+        setLoading(false)
+      }
+    }
+    checkAuth()
+  }, [router, params.id])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await updateProduct(product.id, product)
+      router.push('/admin/products')
+    } catch (error) {
+      console.error('Error updating product:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      try {
+        const imageUrl = await uploadProductImage(file)
+        setProduct({ ...product, image_url: imageUrl })
+      } catch (error) {
+        console.error('Error uploading image:', error)
+      }
+    }
+  }
+
+  if (loading || !user) {
+    return <div>Loading...</div>
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
