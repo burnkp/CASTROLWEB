@@ -25,12 +25,29 @@ export const getProducts = async () => {
 };
 
 export const createProduct = async (productData) => {
+  console.log('Creating product with data:', productData)
   const { data, error } = await supabase
     .from('Products')
-    .insert([productData])
+    .insert([{
+      name: productData.name,
+      description: productData.description,
+      price: productData.price,
+      image_url: productData.image_url,
+      package_size: productData.package_size,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }])
     .select();
-  if (error) throw error;
-  return data;
+  if (error) {
+    console.error('Error creating product:', error)
+    throw new Error(`Failed to create product: ${error.message}`)
+  }
+  if (!data || data.length === 0) {
+    console.error('No data returned after creating product')
+    throw new Error('No data returned after creating product')
+  }
+  console.log('Product created successfully:', data[0])
+  return data[0]
 };
 
 export const updateProduct = async (id, productData) => {
@@ -121,18 +138,28 @@ export const updateOrderStatus = async (id: string, status: string) => {
 
 // Image upload
 export const uploadProductImage = async (file: File) => {
-  const fileName = `${uuidv4()}-${file.name}`;
+  console.log('Uploading product image:', file.name)
+  const fileName = `${uuidv4()}-${file.name}`
   const { data, error } = await supabase.storage
     .from('product-images')
-    .upload(fileName, file);
-  if (error) throw error;
-  return getProductImageUrl(fileName);
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false
+    })
+  if (error) {
+    console.error('Error uploading image:', error)
+    throw new Error(`Failed to upload image: ${error.message}`)
+  }
+  const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(fileName)
+  console.log('Image uploaded successfully:', publicUrlData.publicUrl)
+  return publicUrlData.publicUrl
 };
 
 export const getProductImageUrl = (path) => {
   if (!path) return '/placeholder.svg';
   if (path.startsWith('http')) return path;
-  return supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+  const { data } = supabase.storage.from('product-images').getPublicUrl(path);
+  return data.publicUrl;
 };
 
 // Dashboard KPIs
