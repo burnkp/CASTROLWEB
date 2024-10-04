@@ -102,13 +102,51 @@ export const getCustomerById = async (id: string) => {
 };
 
 // Orders
-export const createOrder = async (orderData) => {
-  const { data, error } = await supabase
+export const createOrder = async (orderInput) => {
+  const { data: customerData, error: customerError } = await supabase
+    .from('Customers')
+    .insert([{
+      name: orderInput.customer_name,
+      company_name: orderInput.company_name,
+      company_nui: orderInput.company_nui,
+      email: orderInput.email,
+      created_at: new Date().toISOString()
+    }])
+    .select()
+
+  if (customerError) throw customerError
+
+  const customer_id = customerData[0].id
+
+  const { data: createdOrderData, error: orderError } = await supabase
     .from('Orders')
-    .insert([orderData])
-    .select();
-  if (error) throw error;
-  return data;
+    .insert([{
+      customer_id: customer_id,
+      total_price: orderInput.total_price,
+      order_status: orderInput.status,
+      created_at: new Date().toISOString()
+    }])
+    .select()
+
+  if (orderError) throw orderError
+
+  const order_id = createdOrderData[0].id
+
+  const orderProductsInput = orderInput.products.map(product => ({
+    order_id: order_id,
+    product_id: product.product_id,
+    quantity: product.quantity,
+    package_size: product.package_size,
+    subtotal: product.subtotal
+  }))
+
+  const { data: createdOrderProductsData, error: orderProductsError } = await supabase
+    .from('OrderProducts')
+    .insert(orderProductsInput)
+
+  if (orderProductsError) throw orderProductsError
+
+  return { order: createdOrderData[0], orderProducts: createdOrderProductsData }
 };
 
 export const getOrders = async () => {

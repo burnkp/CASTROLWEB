@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { supabase, getProducts, createOrder, getProductImageUrl, testOrdersTable, testCustomerCreation } from '@/lib/supabaseClient'
+import { supabase, getProducts, createOrder, getProductImageUrl } from '@/lib/supabaseClient'
 
 export default function Page() {
-  const [products, setProducts] = useState<{ id: number, name: string, description: string, price: number, image_url?: string }[]>([])
-  const [cart, setCart] = useState<{ id: number, quantity: number }[]>([])
+  const [products, setProducts] = useState<{ id: number, name: string, description: string, price: number, image_url?: string, package_size?: number }[]>([])
+  const [cart, setCart] = useState<{ id: number, quantity: number, package_size?: number }[]>([])
   const [showOrderSummary, setShowOrderSummary] = useState(false)
   const [showCheckoutForm, setShowCheckoutForm] = useState(false)
   const [orderConfirmation, setOrderConfirmation] = useState(false)
@@ -46,7 +46,8 @@ export default function Page() {
           item.id === productId ? { ...item, quantity: item.quantity + 1 } : item
         )
       } else {
-        return [...prevCart, { id: productId, quantity: 1 }]
+        const product = products.find(p => p.id === productId)
+        return [...prevCart, { id: productId, quantity: 1, package_size: product?.package_size }]
       }
     })
   }
@@ -76,7 +77,16 @@ export default function Page() {
         company_nui: formData.companyNUI,
         email: formData.email,
         total_price: getTotalPrice(),
-        status: 'pending',
+        status: 'Submitted',
+        products: cart.map(item => {
+          const product = products.find(p => p.id === item.id)
+          return {
+            product_id: item.id,
+            quantity: item.quantity,
+            package_size: item.package_size,
+            subtotal: product ? product.price * item.quantity : 0
+          }
+        })
       };
       console.log('Submitting order data:', orderData);
       const data = await createOrder(orderData);
@@ -94,24 +104,6 @@ export default function Page() {
       }
     }
   }
-
-  const testCustomer = async () => {
-    try {
-      const testData = {
-        name: 'Test Customer',
-        email: 'test@example.com',
-        company_name: 'Test Company',
-        company_nui: 'TEST123',
-        created_at: new Date().toISOString()
-      };
-      const result = await testCustomerCreation(testData);
-      console.log('Test customer creation result:', result);
-      alert('Test customer created successfully');
-    } catch (error) {
-      console.error('Error in test customer creation:', error);
-      alert(`Error in test customer creation: ${error.message}`);
-    }
-  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -176,6 +168,7 @@ export default function Page() {
                     </div>
                   )}
                   <p className="mt-2 text-lg font-bold">${product.price.toFixed(2)}</p>
+                  {product.package_size && <p>Package Size: {product.package_size}</p>}
                 </CardContent>
                 <CardFooter>
                   <Button onClick={() => addToCart(product.id)} className="w-full">Add to Cart</Button>
@@ -302,8 +295,6 @@ export default function Page() {
           </div>
         </div>
       </footer>
-
-      <Button onClick={testCustomer}>Test Customer Creation</Button>
     </div>
   )
 }
