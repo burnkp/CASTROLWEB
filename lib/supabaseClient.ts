@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';  // Add this import
 import crypto from 'crypto';
+import { Order } from '@/types/supabase';
 
 // Initialize Supabase with your project URL and public API key
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -183,13 +184,27 @@ export const getOrders = async () => {
   return data || [];
 };
 
-export const updateOrderStatus = async (id: string, status: string) => {
+export const updateOrderStatus = async (id: string, status: Order['order_status']) => {
+  console.log('Updating order status:', { id, status });
   const { data, error } = await supabase
     .from('Orders')
     .update({ order_status: status, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .select();
-  if (error) throw error;
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error updating order status:', error);
+    throw error;
+  }
+  
+  if (!data) {
+    console.error('Order not found after update');
+    throw new Error('Order not found after update');
+    
+  }
+  
+  console.log('Order status updated successfully:', data);
   return data;
 };
 

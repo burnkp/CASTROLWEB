@@ -39,6 +39,13 @@ interface Order {
   } | null
 }
 
+const statusColors = {
+  Submitted: 'bg-yellow-500 hover:bg-yellow-600',
+  Processing: 'bg-blue-500 hover:bg-blue-600',
+  Paid: 'bg-green-500 hover:bg-green-600',
+  Shipped: 'bg-purple-500 hover:bg-purple-600',
+};
+
 export function Page() {
   const [orders, setOrders] = useState<Order[]>([])
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
@@ -91,7 +98,11 @@ export function Page() {
           <div className="flex items-center space-x-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className={`${statusColors[order.order_status]} text-white`}
+                >
                   {order.order_status}
                 </Button>
               </DropdownMenuTrigger>
@@ -102,20 +113,7 @@ export function Page() {
                 <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'Shipped')}>Shipped</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Edit</DropdownMenuItem>
-                <DropdownMenuItem>View details</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Delete order</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Remove the three-dot button and its dropdown */}
           </div>
         </CardHeader>
         <CardContent>

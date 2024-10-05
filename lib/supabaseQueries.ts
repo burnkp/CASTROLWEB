@@ -64,4 +64,19 @@ export const fetchOrders = async (): Promise<Order[]> => {
   return data;
 };
 
+// Updating Order Status
+export const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  const { data, error } = await supabaseClient
+    .from('Orders')
+    .update({ order_status: newStatus })
+    .eq('id', orderId);
+
+  if (error) {
+    console.error('Error updating order status:', error);
+    throw error;
+  }
+
+  return data;
+};
+
 // Other common queries and mutations can be added here...
