@@ -103,50 +103,69 @@ export const getCustomerById = async (id: string) => {
 
 // Orders
 export const createOrder = async (orderInput) => {
-  const { data: customerData, error: customerError } = await supabase
+  console.log('Creating order with input:', orderInput);
+
+  // Check if the customer already exists
+  const { data: existingCustomer, error: customerCheckError } = await supabase
     .from('Customers')
-    .insert([{
-      name: orderInput.customer_name,
-      company_name: orderInput.company_name,
-      company_nui: orderInput.company_nui,
-      email: orderInput.email,
-      created_at: new Date().toISOString()
-    }])
-    .select()
+    .select('id')
+    .eq('email', orderInput.email)
+    .maybeSingle();
 
-  if (customerError) throw customerError
+  if (customerCheckError) {
+    console.error('Error checking for existing customer:', customerCheckError);
+    throw customerCheckError;
+  }
 
-  const customer_id = customerData[0].id
+  let customer_id;
 
+  if (existingCustomer) {
+    // If the customer exists, use their ID
+    customer_id = existingCustomer.id;
+  } else {
+    // If the customer does not exist, create a new one
+    const { data: customerData, error: customerError } = await supabase
+      .from('Customers')
+      .insert({
+        name: orderInput.customer_name,
+        company_name: orderInput.company_name,
+        company_nui: orderInput.company_nui,
+        email: orderInput.email,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (customerError) {
+      console.error('Error creating new customer:', customerError);
+      throw customerError;
+    }
+    customer_id = customerData.id;
+  }
+
+  // Create the order
   const { data: createdOrderData, error: orderError } = await supabase
     .from('Orders')
-    .insert([{
+    .insert({
       customer_id: customer_id,
       total_price: orderInput.total_price,
-      order_status: orderInput.status,
-      created_at: new Date().toISOString()
-    }])
+      order_status: 'Submitted',
+      created_at: new Date().toISOString(),
+      products: orderInput.products.map(product => ({
+        ...product,
+        price: product.price || 0  // Ensure price is included
+      }))
+    })
     .select()
+    .single();
 
-  if (orderError) throw orderError
+  if (orderError) {
+    console.error('Error creating order:', orderError);
+    throw orderError;
+  }
 
-  const order_id = createdOrderData[0].id
-
-  const orderProductsInput = orderInput.products.map(product => ({
-    order_id: order_id,
-    product_id: product.product_id,
-    quantity: product.quantity,
-    package_size: product.package_size,
-    subtotal: product.subtotal
-  }))
-
-  const { data: createdOrderProductsData, error: orderProductsError } = await supabase
-    .from('OrderProducts')
-    .insert(orderProductsInput)
-
-  if (orderProductsError) throw orderProductsError
-
-  return { order: createdOrderData[0], orderProducts: createdOrderProductsData }
+  console.log('Order created successfully:', createdOrderData);
+  return createdOrderData;
 };
 
 export const getOrders = async () => {
@@ -154,9 +173,9 @@ export const getOrders = async () => {
     .from('Orders')
     .select(`
       *,
-      Customers (name, email),
-      Products (name, price)
-    `);
+      Customers (name, email, company_name)
+    `)
+    .order('created_at', { ascending: false });
   if (error) {
     console.error('Error fetching orders:', error);
     return [];

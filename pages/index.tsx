@@ -77,15 +77,14 @@ export default function Page() {
         company_nui: formData.companyNUI,
         email: formData.email,
         total_price: getTotalPrice(),
-        status: 'Submitted',
         products: cart.map(item => {
-          const product = products.find(p => p.id === item.id)
+          const product = products.find(p => p.id === item.id);
           return {
             product_id: item.id,
             quantity: item.quantity,
             package_size: item.package_size,
             subtotal: product ? product.price * item.quantity : 0
-          }
+          };
         })
       };
       console.log('Submitting order data:', orderData);
@@ -97,11 +96,7 @@ export default function Page() {
       setCart([]);
     } catch (error) {
       console.error('Error submitting order:', error);
-      if (error instanceof Error) {
-        alert(`Error submitting order: ${error.message}`);
-      } else {
-        alert('An unknown error occurred while submitting the order');
-      }
+      alert('An error occurred while submitting the order. Please try again.');
     }
   }
 
