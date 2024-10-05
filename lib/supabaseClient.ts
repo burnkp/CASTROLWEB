@@ -235,27 +235,74 @@ export const getProductImageUrl = (path) => {
 };
 
 // Dashboard KPIs
-export const getDashboardKPIs = async () => {
-  const { data: orders, error: ordersError } = await supabase
-    .from('Orders')
-    .select(`
-      *,
-      Products (name, price)
-    `);
-  
-  if (ordersError) throw ordersError;
+export async function getDashboardKPIs() {
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
 
-  const totalRevenue = orders.reduce((sum, order) => {
-    const price = order.Products?.price || 0;
-    return sum + (order.quantity * price);
-  }, 0);
-  
-  const totalOrders = orders.length;
-  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  const { data: currentOrders, error: currentOrdersError } = await supabase
+    .from('Orders')
+    .select('id, total_price, created_at')
+    .gte('created_at', startOfMonth.toISOString())
+
+  const { data: previousOrders, error: previousOrdersError } = await supabase
+    .from('Orders')
+    .select('id, total_price, created_at')
+    .gte('created_at', startOfPreviousMonth.toISOString())
+    .lt('created_at', startOfMonth.toISOString())
+
+  const { data: products, error: productsError } = await supabase
+    .from('Products')
+    .select('id, package_size')
+
+  const { data: customers, error: customersError } = await supabase
+    .from('Customers')
+    .select('id, created_at')
+
+  if (currentOrdersError || previousOrdersError || productsError || customersError) {
+    console.error('Error fetching data:', currentOrdersError || previousOrdersError || productsError || customersError)
+    return {
+      totalRevenue: 0,
+      totalOrders: 0,
+      averageOrderValue: 0,
+      totalProducts: 0,
+      totalStock: 0,
+      totalCustomers: 0,
+      avgDailyRevenue: 0,
+      revenueChange: 0,
+      ordersChange: 0,
+      customersChange: 0
+    }
+  }
+
+  const currentRevenue = currentOrders?.reduce((sum, order) => sum + order.total_price, 0) || 0
+  const previousRevenue = previousOrders?.reduce((sum, order) => sum + order.total_price, 0) || 0
+  const currentOrdersCount = currentOrders?.length || 0
+  const previousOrdersCount = previousOrders?.length || 0
+  const totalProducts = products?.length || 0
+  const totalStock = products?.reduce((sum, product) => sum + (product.package_size || 0), 0) || 0
+  const totalCustomers = customers?.length || 0
+  const newCustomersThisMonth = customers?.filter(customer => new Date(customer.created_at) >= startOfMonth).length || 0
+  const newCustomersLastMonth = customers?.filter(customer => new Date(customer.created_at) >= startOfPreviousMonth && new Date(customer.created_at) < startOfMonth).length || 0
+
+  const daysSinceMonthStart = Math.ceil((now.getTime() - startOfMonth.getTime()) / (1000 * 60 * 60 * 24))
+  const avgDailyRevenue = currentRevenue / daysSinceMonthStart
+
+  const calculateChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0
+    return ((current - previous) / previous) * 100
+  }
 
   return {
-    totalRevenue,
-    totalOrders,
-    averageOrderValue
-  };
-};
+    totalRevenue: currentRevenue,
+    totalOrders: currentOrdersCount,
+    averageOrderValue: currentOrdersCount > 0 ? currentRevenue / currentOrdersCount : 0,
+    totalProducts,
+    totalStock,
+    totalCustomers,
+    avgDailyRevenue,
+    revenueChange: calculateChange(currentRevenue, previousRevenue),
+    ordersChange: calculateChange(currentOrdersCount, previousOrdersCount),
+    customersChange: calculateChange(newCustomersThisMonth, newCustomersLastMonth)
+  }
+}
